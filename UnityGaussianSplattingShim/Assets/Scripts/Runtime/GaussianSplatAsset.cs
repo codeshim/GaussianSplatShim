@@ -2,7 +2,9 @@ using System;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using static GaussianSplatting.Runtime.GaussianSplatAsset;
+using static UnityEngine.Mesh;
 
 namespace GaussianSplatting.Runtime
 {
@@ -15,6 +17,7 @@ namespace GaussianSplatting.Runtime
         [SerializeField] int m_SplatCount;
         [SerializeField] Vector3 m_BoundsMin;
         [SerializeField] Vector3 m_BoundsMax;
+        [SerializeField] Hash128 m_DataHash;
 
         public int formatVersion => m_FormatVersion;
         public int splatCount => m_SplatCount;
@@ -91,7 +94,7 @@ namespace GaussianSplatting.Runtime
             public ushort shPadding; // pad to multiple of 4 bytes
         }
 
-        public void Initialize(int splats, VectorFormat formatPos, VectorFormat formatScale, ColorFormat formatColor, SHFormat formatSh, Vector3 bMin, Vector3 bMax, CameraInfo[] cameraInfos)
+        public void Initialize(int splats, VectorFormat formatPos, VectorFormat formatScale, ColorFormat formatColor, SHFormat formatSh, Vector3 bMin, Vector3 bMax)
         {
             m_SplatCount = splats;
             m_FormatVersion = kCurrentVersion;
@@ -99,9 +102,21 @@ namespace GaussianSplatting.Runtime
             m_ScaleFormat = formatScale;
             m_ColorFormat = formatColor;
             m_SHFormat = formatSh;
-            m_Cameras = cameraInfos;
             m_BoundsMin = bMin;
             m_BoundsMax = bMax;
+        }
+
+        public void SetDataHash(Hash128 hash)
+        {
+            m_DataHash = hash;
+        }
+
+        public void SetAssetFiles(TextAsset dataPos, TextAsset dataOther, TextAsset dataColor, TextAsset dataSh)
+        {
+            m_PosData = dataPos;
+            m_OtherData = dataOther;
+            m_ColorData = dataColor;
+            m_SHData = dataSh;
         }
 
         public static int GetOtherSizeNoSHIndex(VectorFormat scaleFormat)
@@ -136,6 +151,18 @@ namespace GaussianSplatting.Runtime
             return (width, height);
         }
 
+        public static GraphicsFormat ColorFormatToGraphics(ColorFormat format)
+        {
+            return format switch
+            {
+                ColorFormat.Float32x4 => GraphicsFormat.R32G32B32A32_SFloat,
+                ColorFormat.Float16x4 => GraphicsFormat.R16G16B16A16_SFloat,
+                ColorFormat.Norm8x4 => GraphicsFormat.R8G8B8A8_UNorm,
+                ColorFormat.BC7 => GraphicsFormat.RGBA_BC7_UNorm,
+                _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
+            };
+        }
+
         public static long CalcPosDataSize(int splatCount, VectorFormat formatPos)
         {
             return splatCount * GetVectorSize(formatPos);
@@ -166,17 +193,10 @@ namespace GaussianSplatting.Runtime
         [SerializeField] ColorFormat m_ColorFormat;
         [SerializeField] SHFormat m_SHFormat = SHFormat.Norm11;
 
-        [SerializeField] CameraInfo[] m_Cameras;
-
-        public CameraInfo[] cameras => m_Cameras;
-
-        [Serializable]
-        public struct CameraInfo
-        {
-            public Vector3 pos;
-            public Vector3 axisX, axisY, axisZ;
-            public float fov;
-        }
+        [SerializeField] TextAsset m_PosData;
+        [SerializeField] TextAsset m_ColorData;
+        [SerializeField] TextAsset m_OtherData;
+        [SerializeField] TextAsset m_SHData;
     }
 }
 
