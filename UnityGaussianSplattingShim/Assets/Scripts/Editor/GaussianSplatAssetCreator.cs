@@ -18,7 +18,6 @@ namespace GaussianSplatting.Editor
     public class GaussianSplatAssetCreator : EditorWindow
     {
         const string kProgressTitle = "Creating Gaussian Splat Asset";
-        const string kCamerasJson = "cameras.json";
         const string kPrefOutputFolder = "nesnausk.GaussianSplatting.CreatorOutputFolder";
 
         readonly FilePickerControl m_FilePicker = new();
